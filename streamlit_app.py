@@ -36,7 +36,14 @@ date_range = st.sidebar.date_input("Select Date Range", [data["Date"].min(), dat
 filtered_data = data.copy()
 if ta_filter != "All":
     filtered_data = filtered_data[filtered_data["Partner"] == ta_filter]
-filtered_data = filtered_data[(filtered_data["Date"] >= pd.to_datetime(date_range[0])) & (filtered_data["Date"] <= pd.to_datetime(date_range[1]))]
+
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    filtered_data = filtered_data[
+        (filtered_data["Date"] >= pd.to_datetime(date_range[0])) &
+        (filtered_data["Date"] <= pd.to_datetime(date_range[1]))
+    ]
+else:
+    st.warning("⚠️ Please select a valid date range.")
 
 # --- Download CSV ---
 st.sidebar.download_button("📥 Download Filtered Data", filtered_data.to_csv(index=False), file_name="filtered_ta_data.csv")
