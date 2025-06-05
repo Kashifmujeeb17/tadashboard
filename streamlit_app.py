@@ -5,7 +5,7 @@ from datetime import datetime
 
 st.set_page_config(layout="wide")
 
-st.title("📊 Talent Acquisition Dashboard ")
+st.title("📊 Talent Acquisition Dashboard - Prototype")
 
 # --- Load Data from CSV or Use Sample ---
 uploaded_file = st.sidebar.file_uploader("📂 Upload TA Data CSV", type=["csv"])
@@ -24,8 +24,7 @@ else:
         "Leavers": [5, 2, 4, 3, 1, 2, 3, 4] * 2,
         "Gender": ["Male", "Female"] * 8,
         "Source": ["LinkedIn", "Referral", "Indeed", "Website", "LinkedIn", "Referral", "Indeed", "Website"] * 2,
-        "TimeToHire": [12, 18, 22, 15, 19, 25, 17, 14] * 2,
-        "Position": ["Analyst", "Manager", "Analyst", "Lead", "Manager", "Analyst", "Lead", "Manager"] * 2
+        "TimeToHire": [12, 18, 22, 15, 19, 25, 17, 14] * 2
     })
 
 # --- Sidebar Filter ---
@@ -36,14 +35,7 @@ date_range = st.sidebar.date_input("Select Date Range", [data["Date"].min(), dat
 filtered_data = data.copy()
 if ta_filter != "All":
     filtered_data = filtered_data[filtered_data["Partner"] == ta_filter]
-
-if isinstance(date_range, tuple) and len(date_range) == 2:
-    filtered_data = filtered_data[
-        (filtered_data["Date"] >= pd.to_datetime(date_range[0])) &
-        (filtered_data["Date"] <= pd.to_datetime(date_range[1]))
-    ]
-else:
-    st.warning("⚠️ Please select a valid date range.")
+filtered_data = filtered_data[(filtered_data["Date"] >= pd.to_datetime(date_range[0])) & (filtered_data["Date"] <= pd.to_datetime(date_range[1]))]
 
 # --- Download CSV ---
 st.sidebar.download_button("📥 Download Filtered Data", filtered_data.to_csv(index=False), file_name="filtered_ta_data.csv")
@@ -97,19 +89,36 @@ with st.container():
         st.plotly_chart(fig_hc, use_container_width=True)
 
     with col2:
-        st.markdown("### 💸 Budget vs Actual Cost")
-        cost_df = pd.DataFrame({
-            "Category": ["Budget", "Actual"],
-            "Amount": [6211, 6496]
-        })
-        fig_cost = px.bar(cost_df, x="Category", y="Amount", color="Category", text="Amount")
-        st.plotly_chart(fig_cost, use_container_width=True)
+    st.markdown("### 🏢 Branch Status Overview")
+    uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx"])
+    
+    if uploaded_abep:
+        abep_df = pd.read_excel(uploaded_abep)
+        abep_df["Branch Status"] = abep_df["Branch Status"].str.strip()
+        abep_df["Branch Opening"] = pd.to_datetime(abep_df["Branch Opening"], errors='coerce')
 
-    with col3:
-        st.markdown("### 👥 Joiner vs Leaver by Gender")
-        joiner_leaver_df = filtered_data.groupby("Gender")[["Joiners", "Leavers"]].sum().reset_index()
-        fig_jl = px.bar(joiner_leaver_df, x="Gender", y=["Joiners", "Leavers"], barmode="group")
-        st.plotly_chart(fig_jl, use_container_width=True)
+        # Filtering options
+        unique_statuses = abep_df["Branch Status"].dropna().unique().tolist()
+        selected_statuses = st.sidebar.multiselect("Filter by Branch Status", unique_statuses, default=unique_statuses)
+
+        abep_filtered = abep_df[abep_df["Branch Status"].isin(selected_statuses)]
+
+        # Bar chart for all except "To be Live"
+        status_counts = abep_filtered[abep_filtered["Branch Status"] != "To be Live"]["Branch Status"].value_counts().reset_index()
+        status_counts.columns = ["Branch Status", "Count"]
+        fig_status = px.bar(status_counts, x="Branch Status", y="Count", text="Count", color="Branch Status")
+        st.plotly_chart(fig_status, use_container_width=True)
+
+with col3:
+    if uploaded_abep:
+        st.markdown("### 📅 To be Live Branches by Month")
+        to_be_live = abep_filtered[abep_filtered["Branch Status"] == "To be Live"].copy()
+        to_be_live["Month-Year"] = to_be_live["Branch Opening"].dt.strftime('%b-%y')
+        month_counts = to_be_live["Month-Year"].value_counts().sort_index().reset_index()
+        month_counts.columns = ["Month", "Branches"]
+        fig_month = px.bar(month_counts, x="Month", y="Branches", text="Branches", color="Month")
+        st.plotly_chart(fig_month, use_container_width=True)
+
 
 # --- Funnel Chart for Candidate Pipeline ---
 with st.container():
@@ -132,13 +141,6 @@ with st.container():
     source_effectiveness = filtered_data.groupby("Source")["Joiners"].sum().reset_index().sort_values(by="Joiners", ascending=False)
     fig_source = px.bar(source_effectiveness, x="Source", y="Joiners", text="Joiners", color="Source")
     st.plotly_chart(fig_source, use_container_width=True)
-
-# --- New Feature: Position-wise Hiring Progress ---
-with st.container():
-    st.markdown("### 📍 Position-wise Hiring Progress")
-    position_df = filtered_data.groupby("Position")["Joiners"].sum().reset_index().sort_values(by="Joiners", ascending=False)
-    fig_position = px.bar(position_df, x="Position", y="Joiners", text="Joiners", color="Position")
-    st.plotly_chart(fig_position, use_container_width=True)
 
 # --- Export to CSV (Filtered) ---
 st.sidebar.markdown("---")
