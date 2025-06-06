@@ -80,7 +80,7 @@ with st.container():
 with st.container():
     col1, col2, col3 = st.columns([1.3, 1, 1.1])
     with col1:
-        st.markdown("### 📉 Budget vs Actual Headcount")
+        st.markdown("### 📉 Gap Analysis")
         months = [f"M-{i}" for i in range(1, 13)] + ["Current"]
         budgeted_hc = [300, 340, 370, 390, 400, 410, 420, 440, 450, 460, 470, 480, 4579]
         actual_hc = [290, 320, 350, 370, 380, 400, 410, 420, 430, 445, 460, 470, 4491]
