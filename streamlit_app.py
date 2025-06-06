@@ -89,8 +89,8 @@ with st.container():
         st.plotly_chart(fig_hc, use_container_width=True)
 
     with col2:
-    st.markdown("### 🏢 Branch Status Overview")
-    uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx"])
+        st.markdown("### 🏢 Branch Status Overview")
+        uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx"])
     
     if uploaded_abep:
         abep_df = pd.read_excel(uploaded_abep)
