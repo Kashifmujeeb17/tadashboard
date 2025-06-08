@@ -1,4 +1,4 @@
-# 📊 Talent Acquisition Dashboard - Prototype
+# 📊 Talent Acquisition Dashboard 
 
 A web-based interactive dashboard built with Streamlit for visualizing Talent Acquisition (TA) metrics like joiners, leavers, candidate pipeline, gender diversity, and more.
 
