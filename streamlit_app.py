@@ -88,37 +88,49 @@ with st.container():
         fig_hc = px.bar(hc_df, x="Month", y=["Budgeted HC", "Actual HC"], barmode="group")
         st.plotly_chart(fig_hc, use_container_width=True)
 
-    with col2:
-        st.markdown("### 🏢 Branch Status Overview")
-        uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx"])
-    
-    if uploaded_abep:
-        abep_df = pd.read_excel(uploaded_abep)
-        abep_df["Branch Status"] = abep_df["Branch Status"].str.strip()
-        abep_df["Branch Opening"] = pd.to_datetime(abep_df["Branch Opening"], errors='coerce')
+# --- Branch Overview Section ---
+st.markdown("### 🏢 Branch Status Overview")
+uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx"])
 
-        # Filtering options
-        unique_statuses = abep_df["Branch Status"].dropna().unique().tolist()
-        selected_statuses = st.sidebar.multiselect("Filter by Branch Status", unique_statuses, default=unique_statuses)
+if uploaded_abep:
+    abep_df = pd.read_excel(uploaded_abep, header=1, usecols="K:M")
+    abep_df.columns = abep_df.columns.str.strip()
+    abep_df["Branch Opening"] = pd.to_datetime(abep_df["Branch Opening"], errors='coerce')
 
-        abep_filtered = abep_df[abep_df["Branch Status"].isin(selected_statuses)]
+    unique_statuses = abep_df["Branch Status"].dropna().unique().tolist()
+    selected_statuses = st.sidebar.multiselect("Filter by Branch Status", unique_statuses, default=unique_statuses)
+    abep_filtered = abep_df[abep_df["Branch Status"].isin(selected_statuses)]
 
-        # Bar chart for all except "To be Live"
+    # Summary Counts
+    st.markdown("#### 🧮 Branch Summary")
+    summary_counts = abep_filtered["Branch Status"].value_counts().reset_index()
+    summary_counts.columns = ["Branch Status", "Count"]
+    st.dataframe(summary_counts)
+
+    chart_type = st.radio("Choose Chart Type", ["Bar Chart", "Pie Chart"], horizontal=True)
+
+    with st.container():
+        st.markdown("#### 📊 Current Branch Status Counts")
         status_counts = abep_filtered[abep_filtered["Branch Status"] != "To be Live"]["Branch Status"].value_counts().reset_index()
         status_counts.columns = ["Branch Status", "Count"]
-        fig_status = px.bar(status_counts, x="Branch Status", y="Count", text="Count", color="Branch Status")
+
+        if chart_type == "Bar Chart":
+            fig_status = px.bar(status_counts, x="Branch Status", y="Count", text="Count", color="Branch Status")
+        else:
+            fig_status = px.pie(status_counts, names="Branch Status", values="Count", hole=0.4)
         st.plotly_chart(fig_status, use_container_width=True)
 
-with col3:
-    if uploaded_abep:
-        st.markdown("### 📅 To be Live Branches by Month")
+    with st.container():
+        st.markdown("#### 📅 To be Live Branches by Month")
         to_be_live = abep_filtered[abep_filtered["Branch Status"] == "To be Live"].copy()
-        to_be_live["Month-Year"] = to_be_live["Branch Opening"].dt.strftime('%b-%y')
-        month_counts = to_be_live["Month-Year"].value_counts().sort_index().reset_index()
+        to_be_live["Month-Year"] = to_be_live["Branch Opening"].dt.to_period("M").astype(str)
+        to_be_live["Month-Year"] = pd.to_datetime(to_be_live["Month-Year"])
+        month_counts = to_be_live["Month-Year"].value_counts().reset_index()
         month_counts.columns = ["Month", "Branches"]
+        month_counts = month_counts.sort_values("Month")
+        month_counts["Month"] = month_counts["Month"].dt.strftime("%b-%y")
         fig_month = px.bar(month_counts, x="Month", y="Branches", text="Branches", color="Month")
         st.plotly_chart(fig_month, use_container_width=True)
-
 
 # --- Funnel Chart for Candidate Pipeline ---
 with st.container():
