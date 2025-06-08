@@ -1,19 +1,24 @@
-# 🎈 Blank app template
+# 📊 Talent Acquisition Dashboard - Prototype
 
-A simple Streamlit app template for you to modify!
+A web-based interactive dashboard built with Streamlit for visualizing Talent Acquisition (TA) metrics like joiners, leavers, candidate pipeline, gender diversity, and more.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+## 🚀 Features
 
-### How to run it on your own machine
+- Upload and visualize CSV data of TA activity
+- Filter data by TA Partner and Date Range
+- Key Metrics: Offer Letters, Joiners, Leavers, HC Variance
+- Interactive Charts:
+  - Candidate funnel
+  - Time to hire by partner
+  - Source effectiveness
+  - Gender diversity
+- Optional ABEP Excel upload for branch status analysis
+- Download filtered datasets
 
-1. Install the requirements
+## 🛠️ Installation
 
-   ```
-   $ pip install -r requirements.txt
-   ```
+1. Clone the repository or download `app_ta.py`.
+2. Install dependencies:
 
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+```bash
+pip install -r requirements.txt
