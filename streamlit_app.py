@@ -5,7 +5,7 @@ from datetime import datetime
 
 st.set_page_config(layout="wide")
 
-st.title("📊 Talent Acquisition Dashboard - Prototype")
+st.title("📊 Talent Acquisition Dashboard ")
 
 # --- Load Data from CSV or Use Sample ---
 uploaded_file = st.sidebar.file_uploader("📂 Upload TA Data CSV", type=["csv"])
