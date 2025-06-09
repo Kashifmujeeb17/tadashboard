@@ -77,43 +77,81 @@ with st.container():
         fig_dei = px.pie(dei_data, names='Gender', values='Count', hole=0.5)
         st.plotly_chart(fig_dei, use_container_width=True)
 
+# --- Gap Analysis Only (No Empty Space) ---
 with st.container():
-    col1, col2, col3 = st.columns([1.3, 1, 1.1])
-    with col1:
-        st.markdown("### 📉 Gap Analysis")
-        months = [f"M-{i}" for i in range(1, 13)] + ["Current"]
-        budgeted_hc = [300, 340, 370, 390, 400, 410, 420, 440, 450, 460, 470, 480, 4579]
-        actual_hc = [290, 320, 350, 370, 380, 400, 410, 420, 430, 445, 460, 470, 4491]
-        hc_df = pd.DataFrame({"Month": months, "Budgeted HC": budgeted_hc, "Actual HC": actual_hc})
-        fig_hc = px.bar(hc_df, x="Month", y=["Budgeted HC", "Actual HC"], barmode="group")
-        st.plotly_chart(fig_hc, use_container_width=True)
+    st.markdown("### 📉 Gap Analysis")
+    months = [f"M-{i}" for i in range(1, 13)] + ["Current"]
+    budgeted_hc = [300, 340, 370, 390, 400, 410, 420, 440, 450, 460, 470, 480, 4579]
+    actual_hc = [290, 320, 350, 370, 380, 400, 410, 420, 430, 445, 460, 470, 4491]
+    hc_df = pd.DataFrame({"Month": months, "Budgeted HC": budgeted_hc, "Actual HC": actual_hc})
+    fig_hc = px.bar(hc_df, x="Month", y=["Budgeted HC", "Actual HC"], barmode="group")
+    st.plotly_chart(fig_hc, use_container_width=True)
 
 # --- Branch Overview Section ---
 st.markdown("### 🏢 Branch Status Overview")
-uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx"])
+uploaded_abep = st.sidebar.file_uploader("📄 Upload ABEP Excel", type=["xlsx", "xlsb"])
 
 if uploaded_abep:
-    abep_df = pd.read_excel(uploaded_abep, header=1, usecols="K:M")
+    ext = uploaded_abep.name.split(".")[-1].lower()
+    if ext == "xlsb":
+        abep_df = pd.read_excel(uploaded_abep, sheet_name="Branch Wise", engine="pyxlsb", header=1, usecols="K:M")
+    else:
+        abep_df = pd.read_excel(uploaded_abep, sheet_name="Branch Wise", header=1, usecols="K:M")
+
     abep_df.columns = abep_df.columns.str.strip()
-    abep_df["Branch Opening"] = pd.to_datetime(abep_df["Branch Opening"], errors='coerce')
+
+    # --- Robust date conversion for Branch Opening ---
+    def convert_excel_date(val):
+        try:
+            if pd.isna(val):
+                return pd.NaT
+            if isinstance(val, (int, float)):
+                # Excel serial date
+                return pd.to_datetime("1899-12-30") + pd.to_timedelta(val, "D")
+            if isinstance(val, pd.Timestamp):
+                return val
+            # If it's a string that's a date, try to parse
+            return pd.to_datetime(val, errors='coerce')
+        except Exception:
+            return pd.NaT
+
+    # Keep "Hold" and "Dropped" as is; else convert
+    abep_df["Branch Opening"] = abep_df["Branch Opening"].apply(
+        lambda x: x if x in ["Hold", "Dropped"] else convert_excel_date(x)
+    )
 
     unique_statuses = abep_df["Branch Status"].dropna().unique().tolist()
     selected_statuses = st.sidebar.multiselect("Filter by Branch Status", unique_statuses, default=unique_statuses)
     abep_filtered = abep_df[abep_df["Branch Status"].isin(selected_statuses)]
 
-    # Summary Counts
-    st.markdown("#### 🧮 Branch Summary")
-    summary_counts = abep_filtered["Branch Status"].value_counts().reset_index()
-    summary_counts.columns = ["Branch Status", "Count"]
-    st.dataframe(summary_counts)
+    # --- Branch Status grouping for summary/chart ---
+    def adjust_status(row):
+        if row["Branch Status"] == "To be Live":
+            if row["Branch Opening"] == "Hold":
+                return "Hold"
+            elif row["Branch Opening"] == "Dropped":
+                return "Dropped"
+            elif isinstance(row["Branch Opening"], pd.Timestamp):
+                return "To be Live"
+            elif isinstance(row["Branch Opening"], (int, float)):
+                return "To be Live"
+            else:
+                return "To be Live"
+        else:
+            return row["Branch Status"]
+
+    abep_filtered["Branch Status Adjusted"] = abep_filtered.apply(adjust_status, axis=1)
+
+    status_counts = abep_filtered["Branch Status Adjusted"].value_counts().reset_index()
+    status_counts.columns = ["Branch Status", "Count"]
+
+ #   st.markdown("#### 🧮 Branch Summary")
+ #  st.dataframe(status_counts)
 
     chart_type = st.radio("Choose Chart Type", ["Bar Chart", "Pie Chart"], horizontal=True)
 
     with st.container():
         st.markdown("#### 📊 Current Branch Status Counts")
-        status_counts = abep_filtered[abep_filtered["Branch Status"] != "To be Live"]["Branch Status"].value_counts().reset_index()
-        status_counts.columns = ["Branch Status", "Count"]
-
         if chart_type == "Bar Chart":
             fig_status = px.bar(status_counts, x="Branch Status", y="Count", text="Count", color="Branch Status")
         else:
@@ -122,13 +160,20 @@ if uploaded_abep:
 
     with st.container():
         st.markdown("#### 📅 To be Live Branches by Month")
-        to_be_live = abep_filtered[abep_filtered["Branch Status"] == "To be Live"].copy()
-        to_be_live["Month-Year"] = to_be_live["Branch Opening"].dt.to_period("M").astype(str)
-        to_be_live["Month-Year"] = pd.to_datetime(to_be_live["Month-Year"])
+        # Only those to be live with a real date
+        to_be_live = abep_filtered[abep_filtered["Branch Status Adjusted"] == "To be Live"].copy()
+        # Only keep valid datetimes
+        to_be_live = to_be_live[pd.to_datetime(to_be_live["Branch Opening"], errors='coerce').notna()]
+        to_be_live["Month-Year"] = pd.to_datetime(to_be_live["Branch Opening"], errors='coerce').dt.strftime("%b-%y")
+
         month_counts = to_be_live["Month-Year"].value_counts().reset_index()
         month_counts.columns = ["Month", "Branches"]
+
+        # Sort by month correctly
+        month_counts["Month"] = pd.to_datetime(month_counts["Month"], format="%b-%y")
         month_counts = month_counts.sort_values("Month")
         month_counts["Month"] = month_counts["Month"].dt.strftime("%b-%y")
+
         fig_month = px.bar(month_counts, x="Month", y="Branches", text="Branches", color="Month")
         st.plotly_chart(fig_month, use_container_width=True)
 
